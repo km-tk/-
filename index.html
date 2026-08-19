@@ -63,15 +63,20 @@
   let remarksList = [];
   let selectedNumber = "";
 
+  // 提供されたGoogleスプレッドシート公開CSV URL
+  const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT1oLszRGPVdHdh87qq4xRFnUQUpyVJ70yO3qbVyzaLlS4-69YlbCIj4mDw7jA99_GhKPGvXCeNjQII/pub?output=csv";
+
+  // Googleスプレッドシートからデータを取得
   async function fetchCSV() {
     try {
-      const driveUrl = "https://drive.google.com/uc?export=download&id=18uCyTMw2tbq1yIkTqZ_Ckx4KpZa8QSLD";
-      const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(driveUrl);
-      
+      const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(csvUrl);
       const res = await fetch(proxyUrl);
-      const text = await res.text();
+      if (!res.ok) throw new Error("ネットワークエラー");
       
+      const text = await res.text();
       const rows = text.split(/\r?\n/).map(r => r.split(","));
+      
+      // 0列目＝登録番号、1列目＝会社名として取得
       companies = rows.slice(1).filter(r => r.length >= 2).map(r => ({
         number: r[0] ? r[0].trim().replace(/^"|"$/g, '') : "",
         name: r[1] ? r[1].trim().replace(/^"|"$/g, '') : ""
@@ -82,6 +87,7 @@
   }
   fetchCSV();
 
+  // 会社名検索・自動判別
   function handleSelectCompany() {
     const text = document.getElementById("companyName").value;
     const dropdown = document.getElementById("dropdown");
@@ -127,6 +133,7 @@
     document.getElementById("dropdown").style.display = "none";
   }
 
+  // 追加処理
   function handleAdd() {
     const companyName = document.getElementById("companyName").value;
     const packages = document.getElementById("packages").value;
@@ -160,6 +167,7 @@ OP日：${opDate}
     });
   }
 
+  // まとめてコピー
   async function handleExport() {
     if (remarksList.length === 0) return;
     const result = remarksList.join("\n\n");
@@ -167,6 +175,7 @@ OP日：${opDate}
     alert("まとめてコピーしました！");
   }
 
+  // クリア
   function handleClear() {
     document.getElementById("companyName").value = "";
     document.getElementById("packages").value = "";

@@ -63,16 +63,19 @@
   let remarksList = [];
   let selectedNumber = "";
 
-  // 1. Google DriveからCSV読み込み
+  // 1. Google DriveからCSV読み込み（CORSエラー回避プロキシ経由）
   async function fetchCSV() {
     try {
-      const url = "https://drive.google.com/uc?export=download&id=18uCyTMw2tbq1yIkTqZ_Ckx4KpZa8QSLD";
-      const res = await fetch(url);
+      const driveUrl = "https://drive.google.com/uc?export=download&id=18uCyTMw2tbq1yIkTqZ_Ckx4KpZa8QSLD";
+      const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(driveUrl);
+      
+      const res = await fetch(proxyUrl);
       const text = await res.text();
-      const rows = text.split("\n").map(r => r.split(","));
+      
+      const rows = text.split(/\r?\n/).map(r => r.split(","));
       companies = rows.slice(1).filter(r => r.length >= 2).map(r => ({
-        number: r[0] ? r[0].trim() : "",
-        name: r[1] ? r[1].trim() : ""
+        number: r[0] ? r[0].trim().replace(/^"|"$/g, '') : "",
+        name: r[1] ? r[1].trim().replace(/^"|"$/g, '') : ""
       }));
     } catch (e) {
       console.error("CSVエラー", e);

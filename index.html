@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>送り状作成依頼ツール</title>
+  <style>
+    body { font-family: sans-serif; padding: 15px; max-width: 500px; margin: 0 auto; background: #f8f9fa; }
+    .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .header h2 { margin: 0; font-size: 18px; }
+    .btn-clear { background: #2e7d32; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+    label { font-weight: bold; font-size: 14px; display: block; margin-top: 10px; }
+    input { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+    .dropdown { border: 1px solid #ccc; max-height: 150px; overflow-y: auto; background: white; display: none; }
+    .dropdown-item { padding: 8px; border-bottom: 1px solid #eee; cursor: pointer; }
+    .btn-group { margin-top: 15px; display: flex; flex-direction: column; gap: 8px; }
+    .btn { width: 100%; padding: 12px; font-size: 16px; font-weight: bold; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-add { background: #d2b48c; }
+    .btn-export { background: #757575; }
+    .output { margin-top: 20px; white-space: pre-wrap; background: #eef2f5; padding: 10px; border-radius: 4px; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="header">
+    <h2>送り状作成依頼</h2>
+    <button class="btn-clear" onclick="handleClear()">クリア</button>
+  </div>
+
+  <label>会社名検索</label>
+  <input type="text" id="companyName" placeholder="会社名を入力" oninput="handleSelectCompany()" onfocus="handleCompanyFocus()">
+  <div id="dropdown" class="dropdown"></div>
+
+  <p style="margin: 5px 0; color: #555;">登録番号: <span id="selectedNumber">-</span></p>
+
+  <label>個口数</label>
+  <input type="text" id="packages">
+
+  <label>病院名</label>
+  <input type="text" id="hospital">
+
+  <label>症例名・その他</label>
+  <input type="text" id="caseName">
+
+  <label>OP日</label>
+  <input type="date" id="opDate">
+
+  <label>着日指定</label>
+  <input type="date" id="arrivalDate">
+
+  <div class="btn-group">
+    <button class="btn btn-add" onclick="handleAdd()">追加</button>
+    <button class="btn btn-export" onclick="handleExport()">まとめてコピー</button>
+  </div>
+</div>
+
+<div id="outputList"></div>
+
+<script>
+  let companies = [];
+  let remarksList = [];
+  let selectedNumber = "";
+
+  // 1. Google DriveからCSV読み込み
+  async function fetchCSV() {
+    try {
+      const url = "https://drive.google.com/uc?export=download&id=18uCyTMw2tbq1yIkTqZ_Ckx4KpZa8QSLD";
+      const res = await fetch(url);
+      const text = await res.text();
+      const rows = text.split("\n").map(r => r.split(","));
+      companies = rows.slice(1).filter(r => r.length >= 2).map(r => ({
+        number: r[0] ? r[0].trim() : "",
+        name: r[1] ? r[1].trim() : ""
+      }));
+    } catch (e) {
+      console.error("CSVエラー", e);
+    }
+  }
+  fetchCSV();
+
+  // 2. 検索・候補の表示
+  function handleSelectCompany() {
+    const text = document.getElementById("companyName").value;
+    const dropdown = document.getElementById("dropdown");
+    dropdown.innerHTML = "";
+
+    if (!text) {
+      dropdown.style.display = "none";
+      return;
+    }
+
+    const matches = companies.filter(c => c.name.includes(text));
+    if (matches.length > 0) {
+      dropdown.style.display = "block";
+      matches.forEach(c => {
+        const item = document.createElement("div");
+        item.className = "dropdown-item";
+        item.innerText = c.name;
+        item.onclick = () => {
+          document.getElementById("companyName").value = c.name;
+          selectedNumber = c.number;
+          document.getElementById("selectedNumber").innerText = selectedNumber;
+          dropdown.style.display = "none";
+        };
+        dropdown.appendChild(item);
+      });
+    } else {
+      dropdown.style.display = "none";
+    }
+
+    if (matches.length === 1) {
+      selectedNumber = matches[0].number;
+      document.getElementById("selectedNumber").innerText = selectedNumber;
+    } else if (matches.length !== 1 && !selectedNumber) {
+      selectedNumber = "";
+      document.getElementById("selectedNumber").innerText = "-";
+    }
+  }
+
+  function handleCompanyFocus() {
+    document.getElementById("companyName").value = "";
+    selectedNumber = "";
+    document.getElementById("selectedNumber").innerText = "-";
+    document.getElementById("dropdown").style.display = "none";
+  }
+
+  // 3. 追加処理
+  function handleAdd() {
+    const companyName = document.getElementById("companyName").value;
+    const packages = document.getElementById("packages").value;
+    const hospital = document.getElementById("hospital").value;
+    const caseName = document.getElementById("caseName").value;
+    const opDate = document.getElementById("opDate").value;
+    const arrivalDate = document.getElementById("arrivalDate").value;
+
+    const entry = `【送り状作成依頼】
+会社名：${companyName}
+登録番号：${selectedNumber}
+個口数：${packages}
+●以下備考
+病院名：${hospital}
+症例名・その他：${caseName}
+OP日：${opDate}
+着日指定：${arrivalDate}`;
+
+    remarksList.push(entry);
+    renderOutput();
+  }
+
+  function renderOutput() {
+    const outputDiv = document.getElementById("outputList");
+    outputDiv.innerHTML = "";
+    remarksList.forEach(item => {
+      const card = document.createElement("div");
+      card.className = "output";
+      card.innerText = item;
+      outputDiv.appendChild(card);
+    });
+  }
+
+  // 4. まとめコピー
+  async function handleExport() {
+    if (remarksList.length === 0) return;
+    const result = remarksList.join("\n\n");
+    await navigator.clipboard.writeText(result);
+    alert("まとめてコピーしました！");
+  }
+
+  // 5. クリア
+  function handleClear() {
+    document.getElementById("companyName").value = "";
+    document.getElementById("packages").value = "";
+    document.getElementById("hospital").value = "";
+    document.getElementById("caseName").value = "";
+    document.getElementById("opDate").value = "";
+    document.getElementById("arrivalDate").value = "";
+    document.getElementById("selectedNumber").innerText = "-";
+    selectedNumber = "";
+    remarksList = [];
+    document.getElementById("dropdown").style.display = "none";
+    renderOutput();
+  }
+</script>
+
+</body>
+</html>

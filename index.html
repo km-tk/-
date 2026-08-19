@@ -63,7 +63,6 @@
   let remarksList = [];
   let selectedNumber = "";
 
-  // 1. Google DriveからCSV読み込み（CORSエラー回避プロキシ経由）
   async function fetchCSV() {
     try {
       const driveUrl = "https://drive.google.com/uc?export=download&id=18uCyTMw2tbq1yIkTqZ_Ckx4KpZa8QSLD";
@@ -83,7 +82,6 @@
   }
   fetchCSV();
 
-  // 2. 検索・候補の表示
   function handleSelectCompany() {
     const text = document.getElementById("companyName").value;
     const dropdown = document.getElementById("dropdown");
@@ -129,7 +127,6 @@
     document.getElementById("dropdown").style.display = "none";
   }
 
-  // 3. 追加処理
   function handleAdd() {
     const companyName = document.getElementById("companyName").value;
     const packages = document.getElementById("packages").value;
@@ -163,7 +160,6 @@ OP日：${opDate}
     });
   }
 
-  // 4. まとめコピー
   async function handleExport() {
     if (remarksList.length === 0) return;
     const result = remarksList.join("\n\n");
@@ -171,7 +167,6 @@ OP日：${opDate}
     alert("まとめてコピーしました！");
   }
 
-  // 5. クリア
   function handleClear() {
     document.getElementById("companyName").value = "";
     document.getElementById("packages").value = "";
